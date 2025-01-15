@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --job-name=testcluster
+# Number of CPUs
+#SBATCH -n 10
+# Number of machines
+#SBATCH -N 1
+# Time (example is 5 days)
+#SBATCH -t 5-0
+
+# Load necessary modules
+module load python
+
+# Run your Python script
+srun python my_script.py
