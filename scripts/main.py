@@ -393,11 +393,14 @@ class MLModel:
         print(f"Test Accuracy: {accuracy:.4f}")
         return accuracy
 
-
     def plot_confusion_matrix(self, dataset='test'):
         """
-        Plot the confusion matrix for the model predictions.
+        Plot the confusion matrix for the model predictions and return the figure.
+        Args:
             dataset (str): Which dataset to evaluate ('test' or 'val').
+
+        Returns:
+            matplotlib.figure.Figure: The figure object of the confusion matrix.
         """
         if dataset == 'test':
             X, y = self.X_test, self.y_test
@@ -406,14 +409,29 @@ class MLModel:
         else:
             raise ValueError("Invalid dataset. Use 'test' or 'val'.")
 
+        # Generate predictions
         predictions = self.model.predict(X)
-        ConfusionMatrixDisplay.from_predictions(y, predictions)
+
+        # Create a figure
+        fig, ax = plt.subplots()
+
+        # Plot the confusion matrix
+        ConfusionMatrixDisplay.from_predictions(y, predictions, ax=ax)
+
+        # Add a title
+        ax.set_title(f"Confusion Matrix ({dataset.capitalize()} Set)")
+
+        # Return the figure
+        return fig
 
     def plot_roc_curve(self, dataset='test'):
         """
-        Plot the ROC curve for the model predictions.
+        Plot the ROC curve for the model predictions and return the figure.
         Args:
             dataset (str): Which dataset to evaluate ('test' or 'val').
+
+        Returns:
+            matplotlib.figure.Figure: The figure object of the ROC curve.
         """
         if dataset == 'test':
             X, y = self.X_test, self.y_test
@@ -422,7 +440,7 @@ class MLModel:
         else:
             raise ValueError("Invalid dataset. Use 'test' or 'val'.")
 
-        # Check if the model supports predict_proba
+        # Check if the model supports predict_proba or decision_function
         if hasattr(self.model, "predict_proba"):
             y_proba = self.model.predict_proba(X)[:, 1]  # Probability of the positive class
         elif hasattr(self.model, "decision_function"):
@@ -433,16 +451,27 @@ class MLModel:
         # Compute ROC curve
         fpr, tpr, _ = roc_curve(y, y_proba)
 
+        # Create a figure
+        fig, ax = plt.subplots()
+
         # Plot ROC curve with label
         display = RocCurveDisplay(fpr=fpr, tpr=tpr)
-        display.plot(label=f"ROC Curve ({dataset} set)")
+        display.plot(ax=ax, name=f"ROC Curve ({dataset} set)")
 
+        # Add a title to the plot
+        ax.set_title(f"ROC Curve ({dataset.capitalize()} Set)")
+
+        # Return the figure
+        return fig
 
     def plot_precision_recall_curve(self, dataset='test'):
         """
-        Plot the precision-recall curve for the model predictions.
+        Plot the precision-recall curve for the model predictions and return the figure.
         Args:
             dataset (str): Which dataset to evaluate ('test' or 'val').
+
+        Returns:
+            matplotlib.figure.Figure: The figure object of the precision-recall curve.
         """
         if dataset == 'test':
             X, y = self.X_test, self.y_test
@@ -453,9 +482,16 @@ class MLModel:
 
         y_proba = self.model.predict_proba(X)[:, 1]
         precision, recall, _ = precision_recall_curve(y, y_proba)
-        PrecisionRecallDisplay(precision=precision, recall=recall).plot()
 
+        # Create a figure
+        fig, ax = plt.subplots()
 
+        # Plot the precision-recall curve
+        display = PrecisionRecallDisplay(precision=precision, recall=recall)
+        display.plot(ax=ax)
+
+        # Return the figure
+        return fig
 
 
     def compute_metrics(self, dataset='test'):
@@ -508,11 +544,16 @@ if __name__ == "__main__":
     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
     import matplotlib.pyplot as plt
     import json
-
+    import os
     """define the name that will be used in order to save all the related files for your analysis after"""
     ref_name = "XGBoost_Test_1"
+    # Get the directory of the current script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+
     """ main function to execute the script """
-    data = DataProcessor("/Users/yemen/Documents/Locked-Shields/data/balanced_data.csv")
+
+    data = DataProcessor("../data/balanced_data.csv")
 
     data.load_data()
 
@@ -552,6 +593,8 @@ if __name__ == "__main__":
         # 'use_label_encoder': False,
         'eval_metric': 'logloss'
     }
+    with open(f"results/{ref_name}_xgb_params.json", "w") as f:
+        json.dump(xgb_params, f, indent=4)
 
     # Set the model using the dictionary of parameters
     ml.set_model(XGBClassifier, xgb_params)
@@ -564,9 +607,12 @@ if __name__ == "__main__":
 
     ml.test()
 
-    ml.plot_confusion_matrix(dataset='test')
+    confusion_matrix_plot = ml.plot_confusion_matrix(dataset='test')
+    confusion_matrix_plot.savefig(f"../plots/{ref_name}_confusion_matrix.png")
 
-    ml.plot_roc_curve(dataset='test')
+
+    roc_curve_plot = ml.plot_roc_curve(dataset='test')
+    roc_curve_plot.savefig(f"../plots/{ref_name}_roc_curve.png")
 
     """
     True Negatives (Top-left):
@@ -587,10 +633,11 @@ if __name__ == "__main__":
 
     """
 
-    ml.plot_precision_recall_curve(dataset='test')
-
+    recall_curve_fig = ml.plot_precision_recall_curve(dataset='test')
+    recall_curve_fig.savefig(f"../results/{ref_name}_precision_recall_curve.png")
+    plt.close(recall_curve_fig)
     metrics = ml.compute_metrics(dataset='test')
-    with open(f"results/{ref_name}_metrics_results.json", "w") as f:
-        json.dump(results, f, indent=4)
+    with open(f"../results/{ref_name}_metrics_results.json", "w") as f:
+        json.dump(metrics, f, indent=4)
 
 
