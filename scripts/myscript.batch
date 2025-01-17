@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --job-name=testAICode
+# Number of CPUs
+#SBATCH -n 10
+# Number of machines
+#SBATCH -N 1
+# Time (example is 5 days)
+#SBATCH -t 5-0
+
+
+# Activate the lockedshildsEnv Conda environment
+source ~/miniconda3/bin/activate lockedshildsEnv
+
+python /home/yemen.rhouma/Documents/Locked-Shields/models_testing.py

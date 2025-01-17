@@ -5,6 +5,8 @@ class DataProcessor:
         self.data = None
         self.X = None
         self.y = None
+        self.X_scaled = None
+        self.encoding_mapping = {}
 
 
     # function to loas the data for that you need to have pandas imported as pd
@@ -487,6 +489,11 @@ class MLModel:
 
         return metrics
 
+
+"""
+integrate pylint and pytest gitlab.ci 
+"""
+
 """ main code to execute the script"""
 if __name__ == "__main__":
     import numpy as np
@@ -500,8 +507,10 @@ if __name__ == "__main__":
     from sklearn.metrics import precision_recall_curve, PrecisionRecallDisplay
     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
+    """define the name that will be used in order to save all the related files for your analysis after"""
+    ref_name = "XGBoost_Test_1"
     """ main function to execute the script """
-    data = DataProcessor("balanced_data.csv")
+    data = DataProcessor("/Users/yemen/Documents/Locked-Shields/data/balanced_data.csv")
 
     data.load_data()
 
