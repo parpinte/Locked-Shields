@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=testAICode
+#SBATCH --job-name=XGBoostTestHoleDataSetDropMissingStand
 # Number of CPUs
-#SBATCH -n 10
+#SBATCH -n 20
 # Number of machines
 #SBATCH -N 1
 # Time (example is 5 days)
@@ -11,4 +11,4 @@
 # Activate the lockedshildsEnv Conda environment
 source ~/miniconda3/bin/activate lockedshildsEnv
 
-python /home/yemen.rhouma/Documents/Locked-Shields/models_testing.py
+python /home/yemen.rhouma/Documents/Locked-Shields/scripts/main.py

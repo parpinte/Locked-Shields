@@ -5,8 +5,6 @@ class DataProcessor:
         self.data = None
         self.X = None
         self.y = None
-        self.X_scaled = None
-        self.encoding_mapping = {}
 
 
     # function to loas the data for that you need to have pandas imported as pd
@@ -18,7 +16,7 @@ class DataProcessor:
         except FileNotFoundError:
             print("Error loading data {self.data_path}")
 
-    def clean_data(self, drop_missing_values=False, replace_inf = True, Fill_value = True):
+    def clean_data(self, drop_missing_values=False, replace_inf = True, Fill_value = False):
         """ here we will be cleaning the data"""
         if drop_missing_values:
             self.data.dropna(inplace=True)
@@ -41,7 +39,7 @@ class DataProcessor:
         if self.data is not None:
             self.data.drop(columns_to_drop, axis=1, inplace=True, errors='ignore')
             print("Features dropped successfully")
-        else: print("No data loaded. please doad the data first")
+        else: print("No data loaded. please load the data first")
 
     def split_data(self, target_column):
         """
@@ -61,13 +59,13 @@ class DataProcessor:
             print("No data loaded. Please load the data first.")
 
 
-
-    def detect_categorical(self, handle_nan = "unknown"):
+    def detect_categorical(self, handle_nan="unknown"):
         """
         Detects categorical features in the dataset and identifies NaN values.
         Handles NaN values in the categorical features based on the chosen method.
 
-        Args: handle_nan (str): How to handle NaN values in categorical features.
+        Args:
+            handle_nan (str): How to handle NaN values in categorical features.
                               Options are "drop", "most_frequent", or "unknown".
         """
         if self.data is not None:
@@ -95,11 +93,13 @@ class DataProcessor:
 
                     elif handle_nan == "most_frequent":
                         most_frequent = self.data[feature].mode()[0]
-                        self.data[feature].fillna(most_frequent)
+                        # Assign the result back to the column
+                        self.data[feature] = self.data[feature].fillna(most_frequent)
                         print(f"  Action: Replaced NaN with most frequent value '{most_frequent}'.")
 
                     elif handle_nan == "unknown":
-                        self.data[feature].fillna("Unknown")
+                        # Assign the result back to the column
+                        self.data[feature] = self.data[feature].fillna("Unknown")
                         print(f"  Action: Replaced NaN with 'Unknown'.")
 
                     else:
@@ -108,7 +108,6 @@ class DataProcessor:
             print("\nCategorical NaN handling completed.")
         else:
             print("No data loaded. Please load the data first.")
-
 
     def detect_numerical_issues(self):
         """
@@ -167,48 +166,51 @@ class DataProcessor:
                              - "replace": Replaces issues with the specified `replacement_value`.
             replacement_value (float or int, optional): The value to use when `treatment` is "replace".
 
+        Raises:
+            ValueError: If an invalid `treatment` is provided.
         """
-        if self.data is not None:
-            for feature in features:
-                if feature not in self.data.columns:
-                    print(f"Warning: Feature '{feature}' not found in the dataset. Skipping.")
-                    continue
-
-                # Detect NaN and Inf values
-                total_issues = self.data[feature].isna().sum() + self.data[feature].isin([np.inf, -np.inf]).sum()
-                if total_issues == 0:
-                    print(f"No issues found in '{feature}'. Skipping.")
-                    continue
-
-                print(f"Handling issues in '{feature}':")
-                if treatment == "drop":
-                    # Drop rows with NaN or Inf
-                    self.data = self.data[~self.data[feature].isin([np.inf, -np.inf])]
-                    self.data.dropna(subset=[feature])
-                    print(f"  Action: Dropped rows with issues in '{feature}'.")
-
-                elif treatment == "mean":
-                    # Replace issues with the column mean
-                    mean_value = self.data[~self.data[feature].isin([np.inf, -np.inf])][feature].mean()
-                    self.data[feature] = self.data[feature].replace([np.inf, -np.inf], mean_value)
-                    self.data[feature].fillna(mean_value)
-                    print(f"  Action: Replaced issues with mean value '{mean_value:.2f}' in '{feature}'.")
-
-                elif treatment == "replace":
-                    # Replace issues with a specific value
-                    if replacement_value is not None:
-                        self.data[feature] = self.data[feature].replace([np.inf, -np.inf], replacement_value)
-                        self.data[feature].fillna(replacement_value)
-                        print(f"  Action: Replaced issues with '{replacement_value}' in '{feature}'.")
-                    else:
-                        print(f"  Error: No replacement value provided for '{feature}'. Skipping.")
-
-                else:
-                    print(f"  Error: Invalid treatment option '{treatment}' for '{feature}'. Skipping.")
-
-            print("\nNumerical issue handling completed.")
-        else:
+        if self.data is None:
             print("No data loaded. Please load the data first.")
+            return
+
+        for feature in features:
+            if feature not in self.data.columns:
+                print(f"Warning: Feature '{feature}' not found in the dataset. Skipping.")
+                continue
+
+            # Detect NaN and Inf values
+            total_issues = self.data[feature].isna().sum() + self.data[feature].isin([np.inf, -np.inf]).sum()
+            if total_issues == 0:
+                print(f"No issues found in '{feature}'. Skipping.")
+                continue
+
+            print(f"Handling issues in '{feature}':")
+            if treatment == "drop":
+                # Drop rows with NaN or Inf
+                self.data = self.data[~self.data[feature].isin([np.inf, -np.inf])]
+                self.data.dropna(subset=[feature], inplace=True)
+                print(f"  Action: Dropped rows with issues in '{feature}'.")
+
+            elif treatment == "mean":
+                # Replace issues with the column mean
+                mean_value = self.data[~self.data[feature].isin([np.inf, -np.inf])][feature].mean()
+                self.data[feature] = self.data[feature].replace([np.inf, -np.inf], mean_value)
+                self.data[feature] = self.data[feature].fillna(mean_value)  # Corrected here
+                print(f"  Action: Replaced issues with mean value '{mean_value:.2f}' in '{feature}'.")
+
+            elif treatment == "replace":
+                # Replace issues with a specific value
+                if replacement_value is not None:
+                    self.data[feature] = self.data[feature].replace([np.inf, -np.inf], replacement_value)
+                    self.data[feature] = self.data[feature].fillna(replacement_value)  # Corrected here
+                    print(f"  Action: Replaced issues with '{replacement_value}' in '{feature}'.")
+                else:
+                    print(f"  Error: No replacement value provided for '{feature}'. Skipping.")
+
+            else:
+                raise ValueError(f"Invalid treatment option '{treatment}' for '{feature}'.")
+
+        print("\nNumerical issue handling completed.")
 
     def encode_categorical(self):
         """
@@ -258,7 +260,6 @@ class DataProcessor:
             scaling_type (str): The type of scaling to apply. Options are:
                                 - "standardize": Scales to have zero mean and unit variance.
                                 - "normalize": Scales to have values in the range [0, 1].
-
         """
         if hasattr(self, "X") and hasattr(self, "y"):
             # Ensure exclude_features is a list
@@ -296,23 +297,6 @@ class DataProcessor:
         else:
             print("No feature data (X or y) detected. Please split the data into X and y first.")
 
-
-
-class MLModel:
-    def __init__(self, data, target_column):
-        """
-        Initialize the MLModel class with dataset and target variable.
-
-        Args:
-            data (pd.DataFrame): The dataset containing features and target.
-            target_column (str): The name of the target column in the dataset.
-        """
-        self.data = data
-        self.target_column = target_column
-        self.model = None  # Placeholder for the machine learning model
-        self.X_train, self.X_val, self.X_test = [None] * 3
-        self.y_train, self.y_val, self.y_test = [None] * 3
-
     def preprocess(self, test_size=0.2, val_size=0.1, random_state=42):
         """
         Split the data into training, validation, and testing sets.
@@ -321,8 +305,8 @@ class MLModel:
             random_state (int): Random state for reproducibility.
         """
         # Use self.data and self.target_column to extract features and target
-        X = self.data
-        y = self.target_column
+        X = self.X
+        y = self.y
 
         # Split into training+validation and test sets
         X_temp, self.X_test, y_temp, self.y_test = train_test_split(
@@ -332,6 +316,54 @@ class MLModel:
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
             X_temp, y_temp, test_size=val_size, random_state=random_state
         )
+
+    def check_data_leakage(self):
+        """
+        Check for data leakage by comparing the overlap of rows between training, validation, and test sets.
+
+        Raises:
+            ValueError: If data leakage is detected.
+        """
+        # Combine training and validation sets
+        train_val_set = pd.concat([self.X_train, self.X_val], axis=0)
+
+        # Check overlap between training/validation set and test set
+        overlap_test = pd.merge(train_val_set, self.X_test, how='inner')
+
+        if not overlap_test.empty:
+
+            print("Data leakage detected! Overlapping rows found between training/validation and test sets.")
+        else: print("No data leakage detected.")
+
+    def check_and_remove_duplicates(self, drop_duplicates=False):
+        """
+        Check for and remove duplicate rows in the dataset.
+
+        Returns:
+            int: Number of duplicate rows removed.
+        """
+        duplicates = self.data.duplicated().sum()
+        if duplicates > 0:
+            print(f"Duplicate rows found: {duplicates}")
+            if drop_duplicates:
+                self.data = self.data.drop_duplicates().reset_index(drop=True)
+        else:
+            print("No duplicate rows found.")
+
+
+class MLModel:
+    def __init__(self, X_train, X_test, X_val, y_train, y_test, y_val):
+        """
+        Initialize the MLModel class with dataset and target variable.
+
+        Args:
+            data (pd.DataFrame): The dataset containing features and target.
+            target_column (str): The name of the target column in the dataset.
+        """
+        self.model = None  # Placeholder for the machine learning model
+        self.X_train, self.X_val, self.X_test = X_train, X_val, X_test
+        self.y_train, self.y_val, self.y_test = y_train, y_val, y_test
+
 
     def set_model(self, model_class, model_params=None):
         """
@@ -448,8 +480,16 @@ class MLModel:
         else:
             raise ValueError("The model does not support probability predictions or decision function.")
 
+        # Validate probability predictions
+        if not (0 <= y_proba.min() <= 1 and 0 <= y_proba.max() <= 1):
+            raise ValueError("Probability predictions are not in the range [0, 1]. Check the model or preprocessing.")
+
         # Compute ROC curve
-        fpr, tpr, _ = roc_curve(y, y_proba)
+        fpr, tpr, thresholds = roc_curve(y, y_proba)
+
+        # Check for trivial ROC curve (perfect separation or single point)
+        if len(fpr) == 2 and fpr[0] == 0 and fpr[1] == 1 and tpr[1] == 1:
+            print("Warning: ROC curve indicates perfect separation. Check for data leakage or overfitting.")
 
         # Create a figure
         fig, ax = plt.subplots()
@@ -525,7 +565,6 @@ class MLModel:
 
         return metrics
 
-
 """
 integrate pylint and pytest gitlab.ci 
 """
@@ -546,7 +585,7 @@ if __name__ == "__main__":
     import json
     import os
     """define the name that will be used in order to save all the related files for your analysis after"""
-    ref_name = "XGBoost_Test_1"
+    ref_name = "DROP"
     # Get the directory of the current script
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -561,45 +600,47 @@ if __name__ == "__main__":
                        'Segment_dst', 'Expoid_src', 'Expoid_dst', 'mTimestampStart', 'mTimestampLast']
     data.drop_features(columns_to_drop=columns_to_drop)
 
-    data.detect_categorical(handle_nan="unknown")
+    data.detect_categorical(handle_nan="drop")
 
     # let's handle numerical datas
     features_issues = data.detect_numerical_issues()
-
-    data.handle_numerical_issues(features_issues, treatment="mean")
-
+    print("shape of the dataset is : ", data.data.shape)
+    data.handle_numerical_issues(features_issues, treatment="drop", replacement_value=None)
+    data.check_and_remove_duplicates(drop_duplicates=True)
     # let's encode the categorical datas
 
     data.encode_categorical()
 
     # split data into dataset for the training and target
     data.split_data(target_column='Label')
-
+    print(data.data.shape)
     print(data.X.shape)
     print(data.y.shape)
 
-    data.scale_features(exclude_features=None, scaling_type="normalize")
+    data.scale_features(exclude_features=None, scaling_type="standardize")
 
+    data.preprocess(test_size=0.2, val_size=0.1, random_state=42)
+    data.check_data_leakage()
     """ Testing the MLModel class """
 
-    ml = MLModel(data.X_scaled, data.y)
+    ml = MLModel(data.X_train, data.X_test, data.X_val, data.y_train, data.y_test, data.y_val)
 
     # Define parameters for the XGBClassifier
     xgb_params = {
-        'n_estimators': 150,
+        'n_estimators': 20,
         'learning_rate': 0.05,
         'max_depth': 8,
         'random_state': 42,
         # 'use_label_encoder': False,
         'eval_metric': 'logloss'
     }
-    with open(f"results/{ref_name}_xgb_params.json", "w") as f:
+    with open(f"../results/{ref_name}_xgb_params.json", "w") as f:
         json.dump(xgb_params, f, indent=4)
 
     # Set the model using the dictionary of parameters
     ml.set_model(XGBClassifier, xgb_params)
 
-    ml.preprocess(test_size=0.2, val_size=0.1, random_state=42)
+
 
     ml.train()
 
