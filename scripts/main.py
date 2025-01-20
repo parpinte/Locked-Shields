@@ -565,6 +565,10 @@ class MLModel:
 
         return metrics
 
+    def cross_val_score(self):
+        cv_scores = cross_val_score(self.model, self.X_train, self.y_train, cv=5, scoring='roc_auc')
+        print("Cross-Validation AUC Scores:", cv_scores)
+
 """
 integrate pylint and pytest gitlab.ci 
 """
@@ -584,8 +588,9 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import json
     import os
+    from sklearn.model_selection import cross_val_score
     """define the name that will be used in order to save all the related files for your analysis after"""
-    ref_name = "DROP"
+    ref_name = "DROP_2"
     # Get the directory of the current script
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -617,12 +622,12 @@ if __name__ == "__main__":
     print(data.X.shape)
     print(data.y.shape)
 
-    data.scale_features(exclude_features=None, scaling_type="standardize")
+    data.scale_features(exclude_features=None, scaling_type="normalize")
 
     data.preprocess(test_size=0.2, val_size=0.1, random_state=42)
     data.check_data_leakage()
     """ Testing the MLModel class """
-
+    data.check_and_remove_duplicates(drop_duplicates=False)
     ml = MLModel(data.X_train, data.X_test, data.X_val, data.y_train, data.y_test, data.y_val)
 
     # Define parameters for the XGBClassifier
@@ -681,4 +686,4 @@ if __name__ == "__main__":
     with open(f"../results/{ref_name}_metrics_results.json", "w") as f:
         json.dump(metrics, f, indent=4)
 
-
+    ml.cross_val_score()
