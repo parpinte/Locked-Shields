@@ -16,7 +16,7 @@ class DataProcessor:
         except FileNotFoundError:
             print("Error loading data {self.data_path}")
 
-    def clean_data(self, drop_missing_values=False, replace_inf = True, Fill_value = False):
+    def clean_data(self, drop_missing_values=True, replace_inf = True, Fill_value = False):
         """ here we will be cleaning the data"""
         if drop_missing_values:
             self.data.dropna(inplace=True)
@@ -308,21 +308,18 @@ class DataProcessor:
         X = self.X
         y = self.y
 
-        # Split into training+validation and test sets
         X_temp, self.X_test, y_temp, self.y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state
+            X, y, test_size=0.2, random_state=42
         )
-        # Split training+validation set into training and validation sets
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-            X_temp, y_temp, test_size=val_size, random_state=random_state
+            X_temp, y_temp, test_size=0.1, random_state=42
         )
+
 
     def check_data_leakage(self):
         """
         Check for data leakage by comparing the overlap of rows between training, validation, and test sets.
-
-        Raises:
-            ValueError: If data leakage is detected.
+        Raises: ValueError: If data leakage is detected.
         """
         # Combine training and validation sets
         train_val_set = pd.concat([self.X_train, self.X_val], axis=0)
@@ -331,11 +328,10 @@ class DataProcessor:
         overlap_test = pd.merge(train_val_set, self.X_test, how='inner')
 
         if not overlap_test.empty:
-
             print("Data leakage detected! Overlapping rows found between training/validation and test sets.")
         else: print("No data leakage detected.")
 
-    def check_and_remove_duplicates(self, drop_duplicates=False):
+    def check_and_remove_duplicates(self, drop_duplicates=True):
         """
         Check for and remove duplicate rows in the dataset.
 
@@ -349,6 +345,76 @@ class DataProcessor:
                 self.data = self.data.drop_duplicates().reset_index(drop=True)
         else:
             print("No duplicate rows found.")
+
+    def class_dist(self):
+        plt.figure(figsize=(6, 4))
+        self.y_train.value_counts().plot(kind='bar')
+        plt.title("Class Distribution in Training Set")
+        plt.show()
+
+    def plot_high_correlation(self, threshold=0.7):
+        """
+        Plot correlations above a specified threshold, hiding features with low correlations.
+
+        Args:
+            threshold (float): Correlation threshold to filter values to display.
+
+        Returns:
+            tuple: (matplotlib.figure.Figure, pd.DataFrame)
+                   The figure object and the filtered correlation matrix.
+        """
+
+        corr_matrix = self.X.corr()
+
+        # Mask the lower triangle for cleaner output
+        mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
+
+        # Filter correlations above the threshold
+        filtered_corr = corr_matrix.where((abs(corr_matrix) > threshold) & ~mask)
+
+        # Identify features with at least one high correlation
+        features_to_keep = filtered_corr.columns[
+            (filtered_corr.abs() > threshold).any(axis=0)
+        ]
+
+        # Reduce the matrix to only those features
+        reduced_corr = filtered_corr.loc[features_to_keep, features_to_keep]
+
+        # Create the heatmap plot
+        fig, ax = plt.subplots(figsize=(10, 8))
+        sns.heatmap(
+            reduced_corr,
+            annot=True,
+            cmap="coolwarm",
+            fmt=".2f",
+            cbar=True,
+            linewidths=0.5,
+            ax=ax
+        )
+        ax.set_title(f"Features with Correlation > {threshold}")
+
+        # Return both the figure and the reduced correlation matrix
+        return fig, reduced_corr
+
+
+    def drop_highly_correlated_features(self, threshold=0.85):
+        """
+        Drop one feature from each pair of highly correlated features.
+        Returns: list: List of features dropped.
+        """
+        corr_matrix = self.X.corr()
+        columns_to_drop = set()
+
+        for i in range(len(corr_matrix.columns)):
+            for j in range(i):
+                if abs(corr_matrix.iloc[i, j]) > threshold:
+                    feature_to_drop = corr_matrix.columns[j]
+                    columns_to_drop.add(feature_to_drop)
+
+        self.X.drop(columns=columns_to_drop, inplace=True)
+        print(f"Dropped features due to high correlation: {columns_to_drop}")
+        return list(columns_to_drop)
+
 
 
 class MLModel:
@@ -458,12 +524,8 @@ class MLModel:
 
     def plot_roc_curve(self, dataset='test'):
         """
-        Plot the ROC curve for the model predictions and return the figure.
-        Args:
-            dataset (str): Which dataset to evaluate ('test' or 'val').
-
-        Returns:
-            matplotlib.figure.Figure: The figure object of the ROC curve.
+        Plot the ROC curve for the model predictions and return the figure
+        Returns: matplotlib.figure.Figure: The figure object of the ROC curve.
         """
         if dataset == 'test':
             X, y = self.X_test, self.y_test
@@ -589,6 +651,7 @@ if __name__ == "__main__":
     import json
     import os
     from sklearn.model_selection import cross_val_score
+    import seaborn as sns
     """define the name that will be used in order to save all the related files for your analysis after"""
     ref_name = "DROP_2"
     # Get the directory of the current script
@@ -604,7 +667,7 @@ if __name__ == "__main__":
     columns_to_drop = ['Flow ID', 'SrcIP', 'DstIP', 'External_src', 'External_dst', 'Conn_state', 'Segment_src',
                        'Segment_dst', 'Expoid_src', 'Expoid_dst', 'mTimestampStart', 'mTimestampLast']
     data.drop_features(columns_to_drop=columns_to_drop)
-
+    data.clean_data()
     data.detect_categorical(handle_nan="drop")
 
     # let's handle numerical datas
@@ -615,19 +678,29 @@ if __name__ == "__main__":
     # let's encode the categorical datas
 
     data.encode_categorical()
-
     # split data into dataset for the training and target
     data.split_data(target_column='Label')
     print(data.data.shape)
     print(data.X.shape)
     print(data.y.shape)
+    correlation_threshold = 0.7
+    fig_corr, filtered_corr = data.plot_high_correlation(threshold=correlation_threshold)
+    dropped_correlated_features = data.drop_highly_correlated_features(threshold=correlation_threshold)
+    print(f"dropped features due to high correlation: {dropped_correlated_features}")
+    print(data.X.shape)
+    print(data.y.shape)
+    print()
+    print(f"filtered correlated features : {filtered_corr}")
+    fig_corr.savefig(f"../plots/{ref_name}_fig_corr.png")
+
 
     data.scale_features(exclude_features=None, scaling_type="normalize")
 
     data.preprocess(test_size=0.2, val_size=0.1, random_state=42)
     data.check_data_leakage()
     """ Testing the MLModel class """
-    data.check_and_remove_duplicates(drop_duplicates=False)
+    data.check_and_remove_duplicates(drop_duplicates=True)
+    data.check_data_leakage()
     ml = MLModel(data.X_train, data.X_test, data.X_val, data.y_train, data.y_test, data.y_val)
 
     # Define parameters for the XGBClassifier
@@ -687,3 +760,5 @@ if __name__ == "__main__":
         json.dump(metrics, f, indent=4)
 
     ml.cross_val_score()
+
+    data = data.class_dist()
