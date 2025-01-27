@@ -11,4 +11,4 @@
 # Activate the lockedshildsEnv Conda environment
 source ~/miniconda3/bin/activate lockedshildsEnv
 
-python /home/yemen.rhouma/Documents/Locked-Shields/scripts/main.py
+python /home/yemen.rhouma/Documents/Locked-Shields/scripts/DataCreation.py

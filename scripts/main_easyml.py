@@ -1360,7 +1360,7 @@ if __name__ == "__main__":
 
 
     # Initialize Processor and load data
-    Processor = Processor(filepath="../data/balanced_data.csv")
+    Processor = Processor(filepath="../data/BigTrainSet_undersampled.csv")
     Processor.load_data()
     Processor.show_features()
 

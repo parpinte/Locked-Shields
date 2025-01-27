@@ -1,6 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split, KFold, LeaveOneOut
 
+
 class DataSplitter:
     def __init__(self, X=None, y=None):
         """
@@ -29,6 +30,71 @@ class DataSplitter:
             print(f"Data loaded successfully:\n- Features: {self.X.shape}\n- Target: {self.y.shape}")
         except Exception as e:
             print(f"An error occurred while loading data: {e}")
+
+    def check_data_leakage(self, X_train, X_test, y_train=None, y_test=None):
+        """
+        Checks for data leakage between training and test datasets.
+
+        Args:
+            X_train (pd.DataFrame): Training feature set.
+            X_test (pd.DataFrame): Test feature set.
+            y_train (pd.Series, optional): Training target variable. Default is None.
+            y_test (pd.Series, optional): Test target variable. Default is None.
+
+        Returns:
+            dict: A dictionary containing potential leakage details.
+        """
+        results = {}
+
+        # Check for overlapping rows in X_train and X_test
+        overlap_features = pd.merge(X_train, X_test, how='inner')
+        results['overlap_in_features'] = overlap_features.shape[0]
+
+        if y_train is not None and y_test is not None:
+            # Combine X and y for both sets
+            train_combined = pd.concat([X_train, y_train.reset_index(drop=True)], axis=1)
+            test_combined = pd.concat([X_test, y_test.reset_index(drop=True)], axis=1)
+
+            # Check for overlapping rows between train and test sets
+            overlap_full = pd.merge(train_combined, test_combined, how='inner')
+            results['overlap_in_features_and_target'] = overlap_full.shape[0]
+
+        return results
+
+    def treat_data_leakage(self, X_train, X_test, y_train=None, y_test=None):
+        """
+        Removes overlapping rows between the training and test datasets to prevent data leakage.
+
+        Args:
+            X_train (pd.DataFrame): Training feature set.
+            X_test (pd.DataFrame): Test feature set.
+            y_train (pd.Series, optional): Training target variable. Default is None.
+            y_test (pd.Series, optional): Test target variable. Default is None.
+
+        Returns:
+            tuple: Cleaned X_train, X_test, y_train, y_test (if y_train and y_test are provided).
+        """
+        # Identify overlapping rows in features
+        X_test_clean = X_test[~X_test.apply(tuple, axis=1).isin(X_train.apply(tuple, axis=1))]
+
+        # If targets are provided, ensure alignment with X_test_clean
+        if y_train is not None and y_test is not None:
+            combined_train = pd.concat([X_train, y_train.reset_index(drop=True)], axis=1)
+            combined_test = pd.concat([X_test, y_test.reset_index(drop=True)], axis=1)
+
+            # Identify overlapping rows in combined features and target
+            combined_test_clean = combined_test[
+                ~combined_test.apply(tuple, axis=1).isin(combined_train.apply(tuple, axis=1))
+            ]
+
+            # Split features and target for cleaned test set
+            X_test_clean = combined_test_clean.iloc[:, :-1]
+            y_test_clean = combined_test_clean.iloc[:, -1]
+
+            return X_train, X_test_clean, y_train, y_test_clean
+
+        return X_train, X_test_clean
+
 
     def set_data(self, X, y):
         """

@@ -2,6 +2,17 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
 from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
+from sklearn.metrics import classification_report
+from sklearn.metrics import precision_recall_curve, roc_curve
+from sklearn.metrics import average_precision_score, precision_recall_fscore_support
+from sklearn.metrics import log_loss, brier_score_loss
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
 
 
 class Processor:
@@ -10,6 +21,76 @@ class Processor:
         self.y = None
         self.log = None
         self.data = None
+
+    def check_data_leakage(X_train, X_test, y_train=None, y_test=None):
+        """
+        Checks for data leakage between training and test datasets.
+
+        Args:
+            X_train (pd.DataFrame): Training feature set.
+            X_test (pd.DataFrame): Test feature set.
+            y_train (pd.Series, optional): Training target variable. Default is None.
+            y_test (pd.Series, optional): Test target variable. Default is None.
+
+        Returns:
+            dict: A dictionary containing potential leakage details.
+        """
+        results = {}
+
+        # Check for overlapping rows in X_train and X_test
+        overlap_features = pd.merge(X_train, X_test, how='inner')
+        results['overlap_in_features'] = overlap_features.shape[0]
+
+        if y_train is not None and y_test is not None:
+            # Combine X and y for both sets
+            train_combined = pd.concat([X_train, y_train.reset_index(drop=True)], axis=1)
+            test_combined = pd.concat([X_test, y_test.reset_index(drop=True)], axis=1)
+
+            # Check for overlapping rows between train and test sets
+            overlap_full = pd.merge(train_combined, test_combined, how='inner')
+            results['overlap_in_features_and_target'] = overlap_full.shape[0]
+
+        return results
+
+    def find_correlated_features(self, threshold=0.8):
+        """
+        Find features in the dataset that are highly correlated with the target variable.
+
+        Args:
+            threshold (float): Correlation threshold to identify features.
+
+        Returns:
+            list: Features that are highly correlated with the target variable.
+        """
+        if self.data is not None and self.y is not None:
+            if len(self.data) != len(self.y):
+                print("Error: The feature data and target data have different lengths.")
+                return []
+
+            # Combine features and target into one DataFrame for correlation computation
+            combined_data = self.data.copy()
+            combined_data['target'] = self.y
+
+            # Calculate correlations with the target variable
+            correlations = combined_data.corr()['target'].abs().sort_values(ascending=False)
+
+            # Find features that exceed the correlation threshold
+            high_correlation_features = correlations[correlations > threshold].index.tolist()
+
+            # Exclude the target column itself
+            high_correlation_features = [feature for feature in high_correlation_features if feature != 'target']
+
+            print(f"Features highly correlated with the target (threshold: {threshold}):")
+            for feature in high_correlation_features:
+                print(f"Feature: {feature}, Correlation: {correlations[feature]:.2f}")
+
+            return high_correlation_features
+        else:
+            if self.data is None:
+                print("Error: No data loaded. Please load the dataset first.")
+            if self.y is None:
+                print("Error: Target variable (self.y) is not defined.")
+            return []
 
     def load_data(self):
         """
